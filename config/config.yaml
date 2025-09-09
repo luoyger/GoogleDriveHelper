@@ -1,0 +1,14 @@
+port: 8080
+
+logger:
+  level: INFO
+  output: log/output.log
+  backupCount: 30
+
+mysql:
+  host: 43.128.85.95
+  port: 3306
+  user: g_automtr
+  password: 'xYz123!@#'
+  db: material_resources
+  max_connections: 100

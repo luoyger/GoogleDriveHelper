@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+PyYAML
+
+httpx
+requests
+bs4
+pymysql
+dbutils
+apscheduler
+
+#utils 依赖
+python-consul
