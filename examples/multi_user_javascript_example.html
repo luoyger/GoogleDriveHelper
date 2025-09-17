@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多用户 Google Drive API 示例</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #333;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+        }
+        .section h3 {
+            margin-top: 0;
+            color: #4285f4;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+        }
+        input[type="text"], input[type="file"], textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        textarea {
+            height: 100px;
+            resize: vertical;
+        }
+        button {
+            background-color: #4285f4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #3367d6;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .success {
+            color: #4caf50;
+            background-color: #e8f5e8;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .error {
+            color: #f44336;
+            background-color: #fde8e8;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .info {
+            color: #2196f3;
+            background-color: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .file-list {
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 10px;
+        }
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        .file-item:last-child {
+            border-bottom: none;
+        }
+        .user-info {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .code-block {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔐 多用户 Google Drive API 示例</h1>
+            <p>每个用户使用自己的 Google Drive 账户</p>
+        </div>
+
+        <!-- 配置部分 -->
+        <div class="section">
+            <h3>⚙️ 应用配置 (仅管理员设置)</h3>
+            <div class="info">
+                <strong>⚠️ 重要说明：</strong>这些是应用开发者的凭据，不是用户的！<br>
+                • 用户无需到 Google Console 获取任何凭据<br>
+                • 用户只需通过 Google 账户登录授权即可<br>
+                • 以下配置由应用管理员一次性设置
+            </div>
+            <div class="form-group">
+                <label for="apiBaseUrl">API 基础 URL:</label>
+                <input type="text" id="apiBaseUrl" value="http://localhost:8080" />
+            </div>
+            <div class="form-group">
+                <label for="clientId">应用的 OAuth 客户端 ID (开发者凭据):</label>
+                <input type="text" id="clientId" placeholder="your-app-client-id.apps.googleusercontent.com" />
+                <small style="color: #666;">由应用开发者在 Google Cloud Console 中创建</small>
+            </div>
+            <div class="form-group">
+                <label for="clientSecret">应用的 OAuth 客户端密钥 (开发者凭据):</label>
+                <input type="text" id="clientSecret" placeholder="GOCSPX-your-app-client-secret" />
+                <small style="color: #666;">与客户端 ID 配套，保密存储</small>
+            </div>
+            <div class="form-group">
+                <label for="redirectUri">重定向 URI:</label>
+                <input type="text" id="redirectUri" value="http://localhost:8080/callback" />
+                <small style="color: #666;">在 Google Console 中配置的回调地址</small>
+            </div>
+        </div>
+
+        <!-- 用户授权部分 -->
+        <div class="section">
+            <h3>🔐 用户授权</h3>
+            <div class="info">
+                <strong>⚠️ 重要说明：</strong><br>
+                • <strong>"用户 ID"</strong> 只是应用内部的标识符，可以是任意名字（如：alice, bob, 张三）<br>
+                • <strong>实际登录的 Google 账户</strong> 由用户在 Google 授权页面决定<br>
+                • 不管填什么用户 ID，都会跳转到 Google 让<strong>当前浏览器用户</strong>登录<br>
+                • 如果要测试不同用户，需要在不同浏览器或隐身模式中操作
+            </div>
+            <div class="form-group">
+                <label for="userId">用户 ID (应用内标识):</label>
+                <input type="text" id="userId" placeholder="例如: alice, bob, charlie, 张三, 李四" />
+                <small style="color: #666;">这只是为了区分不同用户的令牌，与 Google 账户无关</small>
+            </div>
+            <button onclick="getAuthUrl()">获取授权 URL</button>
+            <div id="authResult"></div>
+            
+            <div class="form-group" style="margin-top: 20px;">
+                <label for="authCode">授权码（用户授权后获得）:</label>
+                <input type="text" id="authCode" placeholder="从 Google 重定向 URL 中获取的 code 参数" />
+            </div>
+            <button onclick="exchangeCodeForToken()">换取访问令牌</button>
+            <div id="tokenResult"></div>
+        </div>
+
+        <!-- 用户令牌管理 -->
+        <div class="section">
+            <h3>🎫 用户令牌管理</h3>
+            <div class="form-group">
+                <label for="userToken">当前用户令牌 (JSON 格式):</label>
+                <textarea id="userToken" placeholder='{"access_token":"...","refresh_token":"...","client_id":"...","client_secret":"..."}'></textarea>
+            </div>
+            <button onclick="validateToken()">验证令牌</button>
+            <button onclick="getUserInfo()">获取用户信息</button>
+            <div id="userInfoResult"></div>
+        </div>
+
+        <!-- 文件操作部分 -->
+        <div class="section">
+            <h3>📁 文件操作</h3>
+            
+            <!-- 上传文件 -->
+            <div class="form-group">
+                <label for="fileUpload">选择要上传的文件:</label>
+                <input type="file" id="fileUpload" />
+            </div>
+            <div class="form-group">
+                <label for="parentFolderId">父文件夹 ID (可选):</label>
+                <input type="text" id="parentFolderId" placeholder="留空表示上传到根目录" />
+            </div>
+            <button onclick="uploadFile()">上传文件</button>
+            <div id="uploadResult"></div>
+
+            <!-- 文件列表 -->
+            <div style="margin-top: 20px;">
+                <div class="form-group">
+                    <label for="searchQuery">搜索条件 (可选):</label>
+                    <input type="text" id="searchQuery" placeholder="例如: name contains 'test'" />
+                </div>
+                <button onclick="listFiles()">获取文件列表</button>
+                <button onclick="listFiles('image/')" style="background-color: #ff9800;">仅图片</button>
+                <button onclick="listFiles('application/pdf')" style="background-color: #9c27b0;">仅PDF</button>
+                <div id="fileListResult"></div>
+            </div>
+
+            <!-- 文件下载 -->
+            <div style="margin-top: 20px;">
+                <div class="form-group">
+                    <label for="downloadFileId">要下载的文件 ID:</label>
+                    <input type="text" id="downloadFileId" placeholder="从文件列表中复制文件 ID" />
+                </div>
+                <button onclick="downloadFile()">下载文件</button>
+                <div id="downloadResult"></div>
+            </div>
+        </div>
+
+        <!-- 使用说明 -->
+        <div class="section">
+            <h3>📋 使用说明</h3>
+            <div class="info">
+                <h4>🔑 OAuth 2.0 认证角色说明：</h4>
+                <div style="background-color: #fff3cd; padding: 15px; border-radius: 4px; margin: 10px 0;">
+                    <strong>开发者（应用管理员）：</strong><br>
+                    • 在 Google Cloud Console 创建应用和 OAuth 凭据<br>
+                    • 设置 CLIENT_ID 和 CLIENT_SECRET（一次性配置）<br>
+                    • 配置重定向 URI 和权限范围<br><br>
+                    
+                    <strong>普通用户：</strong><br>
+                    • 无需任何技术配置<br>
+                    • 只需要有 Google 账户<br>
+                    • 点击授权链接，用自己的 Google 账户登录<br>
+                    • 授权应用访问自己的 Google Drive<br>
+                    • 开始使用自己的 Google Drive 存储空间
+                </div>
+                
+                <h4>多用户模式工作流程：</h4>
+                <ol>
+                    <li><strong>开发者配置</strong>：应用管理员在 Google Console 创建 OAuth 应用，获得 CLIENT_ID 和 CLIENT_SECRET</li>
+                    <li><strong>应用部署</strong>：将凭据配置到应用中（通常存储在服务器环境变量中）</li>
+                    <li><strong>用户注册</strong>：用户访问应用，点击"使用 Google 登录"</li>
+                    <li><strong>Google 授权</strong>：用户在 Google 页面登录并授权应用访问其 Drive</li>
+                    <li><strong>获取令牌</strong>：应用自动获取用户的访问令牌</li>
+                    <li><strong>文件操作</strong>：用户可以上传、下载、管理自己 Google Drive 中的文件</li>
+                </ol>
+                
+                <h4>🧪 如何测试多用户功能：</h4>
+                <div style="background-color: #fff3cd; padding: 15px; border-radius: 4px; margin: 10px 0;">
+                    <strong>方法 1：使用不同浏览器</strong><br>
+                    • Chrome 中用 Google 账户 A 授权<br>
+                    • Firefox 中用 Google 账户 B 授权<br>
+                    • Safari 中用 Google 账户 C 授权<br><br>
+                    
+                    <strong>方法 2：使用隐身模式</strong><br>
+                    • 普通模式：用户 A 授权<br>
+                    • 隐身模式：用户 B 授权<br>
+                    • 新的隐身窗口：用户 C 授权<br><br>
+                    
+                    <strong>方法 3：切换 Google 账户</strong><br>
+                    • 在 Google 授权页面点击"使用其他账户"<br>
+                    • 登录不同的 Google 账户<br>
+                    • 完成授权流程<br><br>
+                    
+                    <strong>⚠️ 注意：</strong>浏览器会记住当前登录的 Google 账户，所以：<br>
+                    • 用户 ID "alice" → 可能授权给 yourname@gmail.com<br>
+                    • 用户 ID "bob" → 还是会授权给 yourname@gmail.com（如果浏览器已登录）<br>
+                    • 要真正测试不同用户，需要使用不同的 Google 账户登录
+                </div>
+            </div>
+            
+            <div class="code-block">
+                <strong>API 端点说明：</strong><br>
+                GET  /api/v1/multi-user/auth - 获取授权 URL<br>
+                POST /api/v1/multi-user/auth/callback - 处理授权回调<br>
+                POST /api/v1/multi-user/upload - 上传文件到用户 Drive<br>
+                GET  /api/v1/multi-user/list - 列出用户文件<br>
+                GET  /api/v1/multi-user/download/{file_id} - 下载用户文件<br>
+                GET  /api/v1/multi-user/user-info - 获取用户信息
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 多用户 Google Drive API 客户端类
+        class MultiUserGoogleDriveClient {
+            constructor() {
+                this.baseUrl = document.getElementById('apiBaseUrl').value;
+                this.clientId = document.getElementById('clientId').value;
+                this.clientSecret = document.getElementById('clientSecret').value;
+                this.redirectUri = document.getElementById('redirectUri').value;
+            }
+
+            updateConfig() {
+                this.baseUrl = document.getElementById('apiBaseUrl').value;
+                this.clientId = document.getElementById('clientId').value;
+                this.clientSecret = document.getElementById('clientSecret').value;
+                this.redirectUri = document.getElementById('redirectUri').value;
+            }
+
+            async getAuthUrl(userId) {
+                this.updateConfig();
+                
+                if (!this.clientId || !this.clientSecret) {
+                    throw new Error('请先设置 OAuth 客户端 ID 和密钥');
+                }
+
+                const url = `${this.baseUrl}/api/v1/multi-user/auth?` +
+                    `client_id=${encodeURIComponent(this.clientId)}&` +
+                    `client_secret=${encodeURIComponent(this.clientSecret)}&` +
+                    `redirect_uri=${encodeURIComponent(this.redirectUri)}`;
+
+                const response = await safeFetch(url);
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || '获取授权 URL 失败');
+                }
+
+                return data.data.auth_url;
+            }
+
+            async exchangeCodeForToken(code) {
+                this.updateConfig();
+
+                const formData = new FormData();
+                formData.append('code', code);
+                formData.append('client_id', this.clientId);
+                formData.append('client_secret', this.clientSecret);
+                formData.append('redirect_uri', this.redirectUri);
+
+                const response = await safeFetch(`${this.baseUrl}/api/v1/multi-user/auth/callback`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || '换取令牌失败');
+                }
+
+                return data.data.token;
+            }
+
+            async uploadFile(file, userToken, parentFolderId = null) {
+                const formData = new FormData();
+                formData.append('file', file);
+                if (parentFolderId) {
+                    formData.append('parent_folder_id', parentFolderId);
+                }
+
+                // 验证和清理用户令牌
+                const cleanToken = validateAndCleanUserToken(userToken);
+
+                const response = await safeFetch(`${this.baseUrl}/api/v1/multi-user/upload`, {
+                    method: 'POST',
+                    headers: {
+                        'X-User-Token': cleanToken
+                    },
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || '上传失败');
+                }
+
+                return data.data;
+            }
+
+            async listFiles(userToken, query = null, pageSize = 20) {
+                // 验证和清理用户令牌
+                const cleanToken = validateAndCleanUserToken(userToken);
+
+                let url = `${this.baseUrl}/api/v1/multi-user/list?page_size=${pageSize}`;
+                if (query) {
+                    url += `&query=${encodeURIComponent(query)}`;
+                }
+
+                const response = await safeFetch(url, {
+                    headers: {
+                        'X-User-Token': cleanToken
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || '获取文件列表失败');
+                }
+
+                return data.data;
+            }
+
+            async downloadFile(fileId, userToken) {
+                // 验证参数
+                if (!fileId || typeof fileId !== 'string') {
+                    throw new Error('无效的文件ID');
+                }
+                
+                // 验证和清理用户令牌
+                const cleanToken = validateAndCleanUserToken(userToken);
+
+                const response = await safeFetch(`${this.baseUrl}/api/v1/multi-user/download/${fileId}`, {
+                    headers: {
+                        'X-User-Token': cleanToken
+                    }
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || '下载失败');
+                }
+
+                return response;
+            }
+
+            async getUserInfo(userToken) {
+                // 验证和清理用户令牌
+                const cleanToken = validateAndCleanUserToken(userToken);
+
+                const response = await safeFetch(`${this.baseUrl}/api/v1/multi-user/user-info`, {
+                    headers: {
+                        'X-User-Token': cleanToken
+                    }
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.detail || '获取用户信息失败');
+                }
+
+                return data.data;
+            }
+        }
+
+        // 全局客户端实例
+        const client = new MultiUserGoogleDriveClient();
+
+        // 辅助函数
+        function showResult(elementId, content, type = 'info') {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="${type}">${content}</div>`;
+        }
+
+        function showError(elementId, error) {
+            console.error('API Error:', error);
+            showResult(elementId, `❌ ${error.message}`, 'error');
+        }
+
+        function showSuccess(elementId, message) {
+            showResult(elementId, `✅ ${message}`, 'success');
+        }
+
+        // 验证和清理用户令牌
+        function validateAndCleanUserToken(tokenStr) {
+            if (!tokenStr || typeof tokenStr !== 'string') {
+                throw new Error('令牌不能为空');
+            }
+
+            // 去除前后空白字符
+            tokenStr = tokenStr.trim();
+            
+            if (!tokenStr) {
+                throw new Error('令牌不能为空');
+            }
+
+            // 尝试解析 JSON
+            try {
+                const token = JSON.parse(tokenStr);
+                
+                // 验证必要字段
+                if (!token.access_token) {
+                    throw new Error('令牌缺少 access_token 字段');
+                }
+                
+                // 返回清理后的 JSON 字符串
+                return JSON.stringify(token);
+            } catch (e) {
+                if (e.message.includes('access_token')) {
+                    throw e;
+                }
+                throw new Error('令牌格式不正确，请检查 JSON 格式');
+            }
+        }
+
+        // 安全的 fetch 包装器
+        async function safeFetch(url, options = {}) {
+            try {
+                console.log('Fetching:', url, options);
+                const response = await fetch(url, options);
+                console.log('Response status:', response.status);
+                return response;
+            } catch (error) {
+                console.error('Fetch error:', error);
+                if (error.message.includes('Invalid value')) {
+                    throw new Error('请求参数格式错误，请检查输入内容');
+                }
+                throw error;
+            }
+        }
+
+        // API 调用函数
+        async function getAuthUrl() {
+            const userId = document.getElementById('userId').value;
+            if (!userId) {
+                showError('authResult', new Error('请输入用户 ID'));
+                return;
+            }
+
+            try {
+                const authUrl = await client.getAuthUrl(userId);
+                showResult('authResult', 
+                    `<strong>用户 ${userId} 的授权 URL：</strong><br>` +
+                    `<a href="${authUrl}" target="_blank" style="word-break: break-all;">${authUrl}</a><br><br>` +
+                    `<div class="info">请让用户点击上方链接完成 Google 账户授权</div>`, 
+                    'success'
+                );
+            } catch (error) {
+                showError('authResult', error);
+            }
+        }
+
+        async function exchangeCodeForToken() {
+            const authCode = document.getElementById('authCode').value;
+            if (!authCode) {
+                showError('tokenResult', new Error('请输入授权码'));
+                return;
+            }
+
+            try {
+                const token = await client.exchangeCodeForToken(authCode);
+                document.getElementById('userToken').value = JSON.stringify(token, null, 2);
+                showSuccess('tokenResult', '令牌获取成功！已自动填入下方的令牌框');
+            } catch (error) {
+                showError('tokenResult', error);
+            }
+        }
+
+        async function validateToken() {
+            const userToken = document.getElementById('userToken').value;
+            if (!userToken) {
+                showError('userInfoResult', new Error('请输入用户令牌'));
+                return;
+            }
+
+            try {
+                validateAndCleanUserToken(userToken);
+                showSuccess('userInfoResult', '令牌格式正确');
+            } catch (error) {
+                showError('userInfoResult', error);
+            }
+        }
+
+        async function getUserInfo() {
+            const userToken = document.getElementById('userToken').value;
+            if (!userToken) {
+                showError('userInfoResult', new Error('请输入用户令牌'));
+                return;
+            }
+
+            try {
+                const userInfo = await client.getUserInfo(userToken);
+                const user = userInfo.user || {};
+                const quota = userInfo.storage_quota || {};
+                
+                let quotaInfo = '';
+                if (quota.limit) {
+                    const usedGB = (parseInt(quota.usage || 0) / 1024 / 1024 / 1024).toFixed(2);
+                    const totalGB = (parseInt(quota.limit) / 1024 / 1024 / 1024).toFixed(2);
+                    const usagePercent = ((parseInt(quota.usage || 0) / parseInt(quota.limit)) * 100).toFixed(1);
+                    quotaInfo = `<br><strong>存储使用:</strong> ${usedGB} GB / ${totalGB} GB (${usagePercent}%)`;
+                }
+
+                showResult('userInfoResult', 
+                    `<div class="user-info">` +
+                    `<strong>用户信息：</strong><br>` +
+                    `<strong>姓名:</strong> ${user.displayName || '未知'}<br>` +
+                    `<strong>邮箱:</strong> ${user.emailAddress || '未知'}` +
+                    quotaInfo +
+                    `</div>`, 
+                    'success'
+                );
+            } catch (error) {
+                showError('userInfoResult', error);
+            }
+        }
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('fileUpload');
+            const userToken = document.getElementById('userToken').value;
+            const parentFolderId = document.getElementById('parentFolderId').value || null;
+
+            if (!fileInput.files[0]) {
+                showError('uploadResult', new Error('请选择要上传的文件'));
+                return;
+            }
+
+            if (!userToken) {
+                showError('uploadResult', new Error('请输入用户令牌'));
+                return;
+            }
+
+            try {
+                const result = await client.uploadFile(fileInput.files[0], userToken, parentFolderId);
+                showResult('uploadResult', 
+                    `<strong>文件上传成功：</strong><br>` +
+                    `<strong>文件 ID:</strong> ${result.file_id}<br>` +
+                    `<strong>文件名:</strong> ${result.name}<br>` +
+                    `<strong>大小:</strong> ${result.size} bytes<br>` +
+                    `<strong>类型:</strong> ${result.mime_type}`, 
+                    'success'
+                );
+                
+                // 清空文件选择
+                fileInput.value = '';
+                
+                // 自动刷新文件列表
+                setTimeout(() => listFiles(), 1000);
+            } catch (error) {
+                showError('uploadResult', error);
+            }
+        }
+
+        async function listFiles(mimeTypeFilter = null) {
+            const userToken = document.getElementById('userToken').value;
+            const searchQuery = document.getElementById('searchQuery').value;
+
+            if (!userToken) {
+                showError('fileListResult', new Error('请输入用户令牌'));
+                return;
+            }
+
+            try {
+                let query = searchQuery;
+                if (mimeTypeFilter) {
+                    query = query ? `${query} and mimeType contains '${mimeTypeFilter}'` : `mimeType contains '${mimeTypeFilter}'`;
+                }
+
+                const result = await client.listFiles(userToken, query, 50);
+                const files = result.files || [];
+
+                if (files.length === 0) {
+                    showResult('fileListResult', '没有找到任何文件', 'info');
+                    return;
+                }
+
+                let fileListHtml = `<strong>找到 ${files.length} 个文件：</strong><div class="file-list">`;
+                files.forEach(file => {
+                    const fileSize = file.size ? `${(file.size / 1024).toFixed(1)} KB` : '未知';
+                    const createdTime = file.createdTime ? new Date(file.createdTime).toLocaleString('zh-CN') : '未知';
+                    
+                    fileListHtml += `
+                        <div class="file-item">
+                            <div>
+                                <strong>${file.name}</strong><br>
+                                <small>ID: ${file.id} | 大小: ${fileSize} | 创建时间: ${createdTime}</small>
+                            </div>
+                            <div>
+                                <button onclick="document.getElementById('downloadFileId').value='${file.id}'" style="font-size: 12px; padding: 5px 10px;">选择下载</button>
+                            </div>
+                        </div>
+                    `;
+                });
+                fileListHtml += '</div>';
+
+                showResult('fileListResult', fileListHtml, 'success');
+            } catch (error) {
+                showError('fileListResult', error);
+            }
+        }
+
+        async function downloadFile() {
+            const fileId = document.getElementById('downloadFileId').value;
+            const userToken = document.getElementById('userToken').value;
+
+            if (!fileId) {
+                showError('downloadResult', new Error('请输入文件 ID'));
+                return;
+            }
+
+            if (!userToken) {
+                showError('downloadResult', new Error('请输入用户令牌'));
+                return;
+            }
+
+            try {
+                const response = await client.downloadFile(fileId, userToken);
+                
+                // 获取文件名
+                const contentDisposition = response.headers.get('Content-Disposition');
+                let filename = `downloaded_${fileId}`;
+                if (contentDisposition) {
+                    const match = contentDisposition.match(/filename="?([^"]+)"?/);
+                    if (match) {
+                        filename = match[1];
+                    }
+                }
+
+                // 创建下载链接
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+
+                showSuccess('downloadResult', `文件 "${filename}" 下载成功`);
+            } catch (error) {
+                showError('downloadResult', error);
+            }
+        }
+
+        // 页面加载完成后的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 检查 URL 参数中是否包含授权码
+            const urlParams = new URLSearchParams(window.location.search);
+            const code = urlParams.get('code');
+            if (code) {
+                document.getElementById('authCode').value = code;
+                showResult('tokenResult', '检测到授权码，请点击"换取访问令牌"按钮', 'info');
+            }
+
+            // 设置示例令牌格式
+            const exampleToken = {
+                "access_token": "ya29.a0AfH6SMC_example_token",
+                "refresh_token": "1//04_example_refresh_token", 
+                "client_id": "your-client-id.apps.googleusercontent.com",
+                "client_secret": "GOCSPX-your-client-secret",
+                "token_uri": "https://oauth2.googleapis.com/token",
+                "scopes": ["https://www.googleapis.com/auth/drive"]
+            };
+
+            // 如果令牌框为空，显示示例格式
+            const tokenTextarea = document.getElementById('userToken');
+            if (!tokenTextarea.value.trim()) {
+                tokenTextarea.placeholder = JSON.stringify(exampleToken, null, 2);
+            }
+
+            console.log('多用户 Google Drive 示例页面已加载');
+            console.log('如果遇到 fetch 错误，请检查：');
+            console.log('1. 服务是否正在运行 (http://localhost:8080)');
+            console.log('2. 用户令牌格式是否正确');
+            console.log('3. 浏览器开发者工具的网络选项卡');
+        });
+    </script>
+</body>
+</html>
