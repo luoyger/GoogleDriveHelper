@@ -15,11 +15,9 @@ from common.consul_client import init_service_register_and_discovery, service_re
 from common.logger import UVICORN_LOGGING_CONFIG, logger, request_id_context
 from common.pymysql_pool import init_pymysql_pool
 from common.utils import generate_request_id
-from router.material_router import material_router
-from service.task_service import update_tasks_failed_status, scheduled_task
+from router.router import router
 
 scheduler = AsyncIOScheduler()
-task_node = GLOBAL_CONFIG['task_node']
 
 
 @asynccontextmanager
@@ -27,11 +25,6 @@ async def lifespan(app: FastAPI):
     # 启动事件
     logger.info("Application startup")
 
-    if task_node:
-        logger.info("Starting scheduler...")
-        scheduler.add_job(scheduled_task, 'interval', seconds=10, name='Cut Materials Task', max_instances=3)
-        scheduler.start()
-        logger.info("Scheduler started.")
 
     if service_register_and_discovery_enabled():
         init_service_register_and_discovery()
@@ -43,13 +36,6 @@ async def lifespan(app: FastAPI):
     if service_register_and_discovery_enabled():
         deregister_service()
 
-    if task_node:
-        logger.info("Update processing tasks status as Fail...")
-        update_tasks_failed_status()
-
-        logger.info("Shutting down scheduler...")
-        scheduler.shutdown()
-        logger.info("Scheduler shut down.")
 
 
 class RequestIDMiddleware(BaseHTTPMiddleware):
@@ -78,7 +64,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 api_router = APIRouter(prefix="/api/v1")
-api_router.include_router(material_router)
+api_router.include_router(router)
 app.include_router(api_router)
 app.add_middleware(RequestIDMiddleware)
 

@@ -6,9 +6,16 @@ logger:
   backupCount: 30
 
 mysql:
-  host: 43.128.85.95
+  host: 9.135.127.159
   port: 3306
-  user: g_automtr
-  password: 'xYz123!@#'
+  user: root
+  password: ZWkcP*5793dYRj
   db: material_resources
   max_connections: 100
+
+google_drive:
+  auth_method: oauth
+  credentials_path: data/credentials.json
+  scopes:
+  - https://www.googleapis.com/auth/drive
+  token_path: data/token.json

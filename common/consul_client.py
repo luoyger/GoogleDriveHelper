@@ -8,7 +8,7 @@ from common.config_loader import GLOBAL_CONFIG
 from common.utils import get_public_ip
 from common.logger import logger
 
-consul_config = GLOBAL_CONFIG['consul']
+consul_config = GLOBAL_CONFIG['consul'] if 'consul' in GLOBAL_CONFIG else None
 # global 关键字并不用于模块级别的变量声明
 consul_client = None
 
@@ -152,7 +152,7 @@ def init_service_register_and_discovery():
 
 
 def service_register_and_discovery_enabled():
-    return GLOBAL_CONFIG['consul']['enabled']
+    return GLOBAL_CONFIG['consul']['enabled'] if 'consul' in GLOBAL_CONFIG else False
 
 
 def deregister_service():

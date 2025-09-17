@@ -19,3 +19,7 @@ output.log.*
 
 dev.yaml
 prod.yaml
+
+credentials.json
+token.json
+service_account.json

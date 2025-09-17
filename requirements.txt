@@ -8,6 +8,15 @@ bs4
 pymysql
 dbutils
 apscheduler
+Pillow
+pikepdf
 
 #utils 依赖
 python-consul
+reportlab
+python-multipart
+
+# Google Drive API
+google-api-python-client
+google-auth-httplib2
+google-auth-oauthlib
