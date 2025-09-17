@@ -6,10 +6,10 @@ logger:
   backupCount: 30
 
 mysql:
-  host: 9.135.127.159
+  host: xxx
   port: 3306
   user: root
-  password: ZWkcP*5793dYRj
+  password: xxx
   db: material_resources
   max_connections: 100
 

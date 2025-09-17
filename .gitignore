@@ -23,3 +23,6 @@ prod.yaml
 credentials.json
 token.json
 service_account.json
+
+downloads/
+.DS_Store

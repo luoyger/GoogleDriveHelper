@@ -301,7 +301,8 @@ def main():
         
     finally:
         # 9. 清理测试文件
-        cleanup_test_files()
+        # cleanup_test_files()
+        pass
 
 
 if __name__ == '__main__':
